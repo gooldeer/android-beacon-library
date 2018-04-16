@@ -92,6 +92,18 @@ android {
         exclude 'META-INF/LICENSE.txt'
         exclude 'META-INF/NOTICE'
     }
+
+    buildTypes {
+        release {
+
+        }
+        integration {
+
+        }
+        debug{
+
+        }
+    }
 }
 
 dependencies {
