@@ -26,6 +26,8 @@ package org.altbeacon.beacon.service;
 
 import android.app.AlarmManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.ComponentName;
@@ -43,11 +45,14 @@ import android.os.Messenger;
 import android.support.annotation.MainThread;
 import android.support.annotation.RestrictTo;
 import android.support.annotation.RestrictTo.Scope;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.BuildConfig;
+import org.altbeacon.beacon.R;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.distance.DistanceCalculator;
 import org.altbeacon.beacon.distance.ModelSpecificDistanceCalculator;
@@ -72,6 +77,9 @@ import static android.app.PendingIntent.getBroadcast;
 
 public class BeaconService extends Service {
     public static final String TAG = "BeaconService";
+
+    private static final String CHANNEL_ID = "foreground_scanning_channel";
+
     private final Handler handler = new Handler();
     private BluetoothCrashResolver bluetoothCrashResolver;
     private ScanHelper mScanHelper;
@@ -252,6 +260,10 @@ public class BeaconService extends Service {
         String foregroundServiceNotificationId  = getManifestMetadataValue("foregroundServiceNotificationId");
         String foregroundServiceNotificationIconResourceName  = getManifestMetadataValue("foregroundServiceNotificationIconResourceName");
         String foregroundServiceLaunchActivityName  = getManifestMetadataValue("foregroundServiceLaunchActivityName");
+        String foregroundServiceNotificationChannelId  = getManifestMetadataValue("foregroundServiceNotificationChannelId");
+        String foregroundServiceNotificationChannelName  = getManifestMetadataValue("foregroundServiceNotificationChannelName");
+        String foregroundServiceNotificationChannelDescription  = getManifestMetadataValue("foregroundServiceNotificationChannelDescription");
+
         if (foregroundServiceNotificationId != null) {
             int notificationId = 365739466;
             try {
@@ -261,7 +273,16 @@ public class BeaconService extends Service {
                 LogManager.e(e, TAG, "Illegal integer value present in AndroidManifest.xml for BeaconService metadata key foregroundServiceNotificationId");
             }
 
-            Notification.Builder builder = new Notification.Builder(this);
+            if (!createNotificationChannel(
+                    foregroundServiceNotificationChannelId,
+                    foregroundServiceNotificationChannelName,
+                    foregroundServiceNotificationChannelDescription)) {
+
+                LogManager.e(TAG, "Notification channel is not configured in manifest");
+                return;
+            }
+
+            NotificationCompat.Builder builder = notificationBuilder(foregroundServiceNotificationChannelId);
             if (foregroundServiceLaunchActivityName != null) {
                 Intent notificationIntent = new Intent(foregroundServiceLaunchActivityName);
                 PendingIntent pendingIntent =
@@ -292,6 +313,37 @@ public class BeaconService extends Service {
                 this.startForeground(notificationId, builder.build());
             }
         }
+    }
+
+    private NotificationCompat.Builder notificationBuilder(String channelId) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return new NotificationCompat.Builder(this, channelId);
+        } else {
+            return new NotificationCompat.Builder(this);
+        }
+    }
+
+    private boolean createNotificationChannel(String channelId, String channelName, String channelDescirption) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Create the NotificationChannel, but only on API 26+ because
+            // the NotificationChannel class is new and not in the support library
+            if (channelId == null || channelName == null || channelDescirption == null) {
+                return false;
+            }
+
+            NotificationChannel channel = new NotificationChannel(
+                    channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription(channelDescirption);
+            // Register the channel with the system
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+                return true;
+            }
+            return false;
+        }
+        return true;
     }
 
     private String getManifestMetadataValue(String key) {
