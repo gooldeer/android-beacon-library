@@ -25,7 +25,6 @@ package org.altbeacon.beacon.service;
 
 
 import android.app.AlarmManager;
-import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -46,13 +45,12 @@ import android.support.annotation.MainThread;
 import android.support.annotation.RestrictTo;
 import android.support.annotation.RestrictTo.Scope;
 import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
+import android.util.Log;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.BuildConfig;
-import org.altbeacon.beacon.R;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.distance.DistanceCalculator;
 import org.altbeacon.beacon.distance.ModelSpecificDistanceCalculator;
@@ -66,7 +64,6 @@ import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 
 import static android.app.PendingIntent.FLAG_ONE_SHOT;
 import static android.app.PendingIntent.getBroadcast;
@@ -284,10 +281,19 @@ public class BeaconService extends Service {
 
             NotificationCompat.Builder builder = notificationBuilder(foregroundServiceNotificationChannelId);
             if (foregroundServiceLaunchActivityName != null) {
-                Intent notificationIntent = new Intent(foregroundServiceLaunchActivityName);
-                PendingIntent pendingIntent =
-                        PendingIntent.getActivity(this, 0, notificationIntent, 0);
-                builder.setContentIntent(pendingIntent);
+
+                try {
+                    Intent notificationIntent =
+                            new Intent(
+                                    this,
+                                    Class.forName(foregroundServiceLaunchActivityName));
+                    notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    PendingIntent pendingIntent =
+                            PendingIntent.getActivity(this, 0, notificationIntent, 0);
+                    builder.setContentIntent(pendingIntent);
+                } catch (ClassNotFoundException e) {
+                    Log.e(TAG, e.toString());
+                }
             }
             if (foregroundServiceNotificationIconResourceName != null) {
                 int iconId = getResources().getIdentifier(foregroundServiceNotificationIconResourceName, null, null);
